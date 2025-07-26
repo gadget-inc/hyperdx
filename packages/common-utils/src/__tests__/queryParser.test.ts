@@ -11,6 +11,7 @@ describe('CustomSchemaSQLSerializerV2 - json', () => {
   metadata.getColumn = ({ column }) => {
     return new Promise((resolve, reject) => {
       if (column.indexOf('.') >= 0) return resolve(undefined);
+      if (column === 'someUnknownField') return resolve(undefined);
       const testTable = getTestTable(column);
       // @ts-ignore
       return resolve(testTable);
@@ -47,6 +48,54 @@ describe('CustomSchemaSQLSerializerV2 - json', () => {
         number:
           "dynamicType(`logBody`.`test`.`nest`) in ('Int8', 'Int16', 'Int32', 'Int64', 'Int128', 'Int256', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'UInt128', 'UInt256', 'Float32', 'Float64') and `logBody`.`test`.`nest`",
         string: 'toString(`logBody`.`test`.`nest`)',
+      },
+      found: true,
+      propertyType: 'json',
+    });
+  });
+
+  it('getColumnForField - fallbackAttributeExpression', async () => {
+    const serializer = new CustomSchemaSQLSerializerV2({
+      metadata,
+      databaseName,
+      tableName,
+      connectionId,
+      fallbackAttributeExpression: 'LogAttributes',
+    });
+
+    const field1 = 'someUnknownField';
+    const res1 = await serializer.getColumnForField(field1);
+    expect(res1).toEqual({
+      column: '',
+      columnJSON: {
+        number:
+          "dynamicType(`LogAttributes`.`someUnknownField`) in ('Int8', 'Int16', 'Int32', 'Int64', 'Int128', 'Int256', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'UInt128', 'UInt256', 'Float32', 'Float64') and `LogAttributes`.`someUnknownField`",
+        string: 'toString(`LogAttributes`.`someUnknownField`)',
+      },
+      found: true,
+      propertyType: 'json',
+    });
+    const field2 = 'someUnknownField.test.nest';
+    const res2 = await serializer.getColumnForField(field2);
+    expect(res2).toEqual({
+      column: '',
+      columnJSON: {
+        number:
+          "dynamicType(`LogAttributes`.`someUnknownField`.`test`.`nest`) in ('Int8', 'Int16', 'Int32', 'Int64', 'Int128', 'Int256', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'UInt128', 'UInt256', 'Float32', 'Float64') and `LogAttributes`.`someUnknownField`.`test`.`nest`",
+        string: 'toString(`LogAttributes`.`someUnknownField`.`test`.`nest`)',
+      },
+      found: true,
+      propertyType: 'json',
+    });
+
+    const field3 = `someUnknownField.test-special-char';.nest`;
+    const res3 = await serializer.getColumnForField(field3);
+    expect(res3).toEqual({
+      column: '',
+      columnJSON: {
+        number:
+          "dynamicType(`LogAttributes`.`someUnknownField`.`test-special-char';`.`nest`) in ('Int8', 'Int16', 'Int32', 'Int64', 'Int128', 'Int256', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'UInt128', 'UInt256', 'Float32', 'Float64') and `LogAttributes`.`someUnknownField`.`test-special-char';`.`nest`",
+        string: "toString(`LogAttributes`.`someUnknownField`.`test-special-char';`.`nest`)",
       },
       found: true,
       propertyType: 'json',

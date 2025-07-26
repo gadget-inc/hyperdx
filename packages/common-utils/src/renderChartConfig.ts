@@ -363,6 +363,7 @@ async function renderSelectList(
         from: chartConfig.from,
         language: select.aggConditionLanguage ?? 'lucene',
         implicitColumnExpression: chartConfig.implicitColumnExpression,
+        fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
         metadata,
         connectionId: chartConfig.connection,
         with: chartConfig.with,
@@ -574,6 +575,7 @@ async function renderWhereExpression({
   metadata,
   from,
   implicitColumnExpression,
+  fallbackAttributeExpression,
   connectionId,
   with: withClauses,
 }: {
@@ -582,6 +584,7 @@ async function renderWhereExpression({
   metadata: Metadata;
   from: ChartConfigWithDateRange['from'];
   implicitColumnExpression?: string;
+  fallbackAttributeExpression?: string;
   connectionId: string;
   with?: ChartConfigWithDateRange['with'];
 }): Promise<ChSql> {
@@ -592,6 +595,7 @@ async function renderWhereExpression({
       databaseName: from.databaseName,
       tableName: from.tableName,
       implicitColumnExpression,
+      fallbackAttributeExpression,
       connectionId: connectionId,
     });
     const builder = new SearchQueryBuilder(condition, serializer);
@@ -634,6 +638,7 @@ async function renderWhere(
         from: chartConfig.from,
         language: chartConfig.whereLanguage ?? 'sql',
         implicitColumnExpression: chartConfig.implicitColumnExpression,
+        fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
         metadata,
         connectionId: chartConfig.connection,
         with: chartConfig.with,
@@ -659,6 +664,7 @@ async function renderWhere(
               from: chartConfig.from,
               language: select.aggConditionLanguage ?? 'sql',
               implicitColumnExpression: chartConfig.implicitColumnExpression,
+              fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
               metadata,
               connectionId: chartConfig.connection,
               with: chartConfig.with,
@@ -685,6 +691,7 @@ async function renderWhere(
             from: chartConfig.from,
             language: filter.type,
             implicitColumnExpression: chartConfig.implicitColumnExpression,
+            fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
             metadata,
             connectionId: chartConfig.connection,
             with: chartConfig.with,

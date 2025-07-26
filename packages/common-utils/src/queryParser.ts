@@ -422,6 +422,7 @@ export abstract class SQLSerializer implements Serializer {
 export type CustomSchemaConfig = {
   databaseName: string;
   implicitColumnExpression?: string;
+  fallbackAttributeExpression?: string;
   tableName: string;
   connectionId: string;
 };
@@ -431,6 +432,7 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
   private tableName: string;
   private databaseName: string;
   private implicitColumnExpression?: string;
+  private fallbackAttributeExpression?: string;
   private connectionId: string;
 
   constructor({
@@ -439,12 +441,14 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     tableName,
     connectionId,
     implicitColumnExpression,
+    fallbackAttributeExpression,
   }: { metadata: Metadata } & CustomSchemaConfig) {
     super();
     this.metadata = metadata;
     this.databaseName = databaseName;
     this.tableName = tableName;
     this.implicitColumnExpression = implicitColumnExpression;
+    this.fallbackAttributeExpression = fallbackAttributeExpression;
     this.connectionId = connectionId;
   }
 
@@ -530,6 +534,29 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
       }
       // TODO: Support arrays and tuples
       throw new Error('Unsupported column type for prefix match');
+    }
+
+    // gadget addition: allow falling back to json property access of a json fallback attributes list
+    if (this.fallbackAttributeExpression) {
+      const segments = field.split('.');
+      const accessPath = [
+        this.fallbackAttributeExpression,
+        ...segments,
+      ].join('.');
+
+      return {
+        found: true,
+        columnExpression: '',
+        columnExpressionJSON: {
+          string: SqlString.format(`toString(??)`, [accessPath]),
+          number: SqlString.format(`dynamicType(??) in (?) and ??`, [
+            accessPath,
+            CLICK_HOUSE_JSON_NUMBER_TYPES,
+            accessPath,
+          ]),
+        },
+        columnType: 'JSON',
+      };
     }
 
     // It might be an alias, let's just try the column
