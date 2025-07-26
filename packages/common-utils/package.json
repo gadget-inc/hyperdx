@@ -50,6 +50,7 @@
   "scripts": {
     "dev": "nodemon --watch ./src --ext ts --exec \"tsup\"",
     "build": "tsup",
+    "prepublishOnly": "yarn build",
     "ci:build": "tsup",
     "lint": "eslint --quiet . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
