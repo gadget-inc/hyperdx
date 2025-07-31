@@ -74,3 +74,11 @@ To develop from WSL, follow instructions
 If you need help getting started,
 [join our Discord](https://discord.gg/FErRRKU78j) and we're more than happy to
 get you set up!
+
+## Gadget specific prerelease instructions
+
+Run
+
+```shell
+yarn workspace @hyperdx/common-utils exec gitpkg publish
+```
