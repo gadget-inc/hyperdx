@@ -432,13 +432,6 @@ export class ClickhouseClient {
     }
     let _url = this.host;
 
-    // eslint-disable-next-line no-console
-    console.log('--------------------------------------------------------');
-    // eslint-disable-next-line no-console
-    console.log('Sending Query:', debugSql);
-    // eslint-disable-next-line no-console
-    console.log('--------------------------------------------------------');
-
     let clickhouse_settings = structuredClone(
       external_clickhouse_settings || {},
     );
