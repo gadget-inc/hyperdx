@@ -357,6 +357,7 @@ export const _ChartConfigSchema = z.object({
   timestampValueExpression: z.string(),
   implicitColumnExpression: z.string().optional(),
   fallbackAttributeExpression: z.string().optional(),
+  columnAliases: z.record(z.string(), z.string()).optional(),
   granularity: z.union([SQLIntervalSchema, z.literal('auto')]).optional(),
   markdown: z.string().optional(),
   filtersLogicalOperator: z.enum(['AND', 'OR']).optional(),

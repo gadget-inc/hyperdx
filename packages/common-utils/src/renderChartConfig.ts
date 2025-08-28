@@ -364,6 +364,7 @@ async function renderSelectList(
         language: select.aggConditionLanguage ?? 'lucene',
         implicitColumnExpression: chartConfig.implicitColumnExpression,
         fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
+        columnAliases: chartConfig.columnAliases,
         metadata,
         connectionId: chartConfig.connection,
         with: chartConfig.with,
@@ -576,6 +577,7 @@ async function renderWhereExpression({
   from,
   implicitColumnExpression,
   fallbackAttributeExpression,
+  columnAliases,
   connectionId,
   with: withClauses,
 }: {
@@ -585,6 +587,7 @@ async function renderWhereExpression({
   from: ChartConfigWithDateRange['from'];
   implicitColumnExpression?: string;
   fallbackAttributeExpression?: string;
+  columnAliases?: Record<string, string>;
   connectionId: string;
   with?: ChartConfigWithDateRange['with'];
 }): Promise<ChSql> {
@@ -596,6 +599,7 @@ async function renderWhereExpression({
       tableName: from.tableName,
       implicitColumnExpression,
       fallbackAttributeExpression,
+      columnAliases,
       connectionId: connectionId,
     });
     const builder = new SearchQueryBuilder(condition, serializer);
@@ -639,6 +643,7 @@ async function renderWhere(
         language: chartConfig.whereLanguage ?? 'sql',
         implicitColumnExpression: chartConfig.implicitColumnExpression,
         fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
+        columnAliases: chartConfig.columnAliases,
         metadata,
         connectionId: chartConfig.connection,
         with: chartConfig.with,
@@ -664,7 +669,9 @@ async function renderWhere(
               from: chartConfig.from,
               language: select.aggConditionLanguage ?? 'sql',
               implicitColumnExpression: chartConfig.implicitColumnExpression,
-              fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
+              fallbackAttributeExpression:
+                chartConfig.fallbackAttributeExpression,
+              columnAliases: chartConfig.columnAliases,
               metadata,
               connectionId: chartConfig.connection,
               with: chartConfig.with,
@@ -691,7 +698,9 @@ async function renderWhere(
             from: chartConfig.from,
             language: filter.type,
             implicitColumnExpression: chartConfig.implicitColumnExpression,
-            fallbackAttributeExpression: chartConfig.fallbackAttributeExpression,
+            fallbackAttributeExpression:
+              chartConfig.fallbackAttributeExpression,
+            columnAliases: chartConfig.columnAliases,
             metadata,
             connectionId: chartConfig.connection,
             with: chartConfig.with,

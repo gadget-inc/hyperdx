@@ -423,6 +423,7 @@ export type CustomSchemaConfig = {
   databaseName: string;
   implicitColumnExpression?: string;
   fallbackAttributeExpression?: string;
+  columnAliases?: Record<string, string>;
   tableName: string;
   connectionId: string;
 };
@@ -433,6 +434,7 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
   private databaseName: string;
   private implicitColumnExpression?: string;
   private fallbackAttributeExpression?: string;
+  private columnAliases: Record<string, string>;
   private connectionId: string;
 
   constructor({
@@ -442,6 +444,7 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     connectionId,
     implicitColumnExpression,
     fallbackAttributeExpression,
+    columnAliases,
   }: { metadata: Metadata } & CustomSchemaConfig) {
     super();
     this.metadata = metadata;
@@ -449,6 +452,7 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     this.tableName = tableName;
     this.implicitColumnExpression = implicitColumnExpression;
     this.fallbackAttributeExpression = fallbackAttributeExpression;
+    this.columnAliases = columnAliases ?? {};
     this.connectionId = connectionId;
   }
 
@@ -463,14 +467,44 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
    * - JSONExtract for non-string types
    */
   private async buildColumnExpressionFromField(field: string) {
-    const exactMatch = await this.metadata.getColumn({
+    // First, try exact match with the original field name
+    let exactMatch = await this.metadata.getColumn({
       databaseName: this.databaseName,
       tableName: this.tableName,
       column: field,
       connectionId: this.connectionId,
+      matchLowercase: true,
     });
 
+    // If no exact match found, check if the field name is an alias
+    if (!exactMatch && field in this.columnAliases) {
+      exactMatch = await this.metadata.getColumn({
+        databaseName: this.databaseName,
+        tableName: this.tableName,
+        column: this.columnAliases[field],
+        connectionId: this.connectionId,
+        matchLowercase: true,
+      });
+    }
+
     if (exactMatch) {
+      // For JSON columns, always return JSON expressions to maintain consistency
+      if (exactMatch.type.startsWith('JSON')) {
+        return {
+          found: true,
+          columnExpression: '',
+          columnExpressionJSON: {
+            string: SqlString.format(`toString(??)`, [exactMatch.name]),
+            number: SqlString.format(`dynamicType(??) in (?) and ??`, [
+              exactMatch.name,
+              CLICK_HOUSE_JSON_NUMBER_TYPES,
+              exactMatch.name,
+            ]),
+          },
+          columnType: 'JSON',
+        };
+      }
+
       return {
         found: true,
         columnType: exactMatch.type,
@@ -481,12 +515,24 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     }
 
     const fieldPrefix = field.split('.')[0];
-    const prefixMatch = await this.metadata.getColumn({
+    let prefixMatch = await this.metadata.getColumn({
       databaseName: this.databaseName,
       tableName: this.tableName,
       column: fieldPrefix,
       connectionId: this.connectionId,
+      matchLowercase: true,
     });
+
+    // check if this field prefix matches an alias
+    if (!prefixMatch && fieldPrefix in this.columnAliases) {
+      prefixMatch = await this.metadata.getColumn({
+        databaseName: this.databaseName,
+        tableName: this.tableName,
+        column: this.columnAliases[fieldPrefix],
+        connectionId: this.connectionId,
+        matchLowercase: true,
+      });
+    }
 
     if (prefixMatch) {
       const fieldPostfix = field.split('.').slice(1).join('.');
@@ -505,15 +551,18 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
         // ignore original column expression at here
         // need to know the term to decide which expression to read
         // TODO: add real columnExpression when CH update JSON data type
+        const jsonFieldPath = fieldPostfix
+          ? `${prefixMatch.name}.${fieldPostfix}`
+          : prefixMatch.name;
         return {
           found: true,
           columnExpression: '',
           columnExpressionJSON: {
-            string: SqlString.format(`toString(??)`, [field]),
+            string: SqlString.format(`toString(??)`, [jsonFieldPath]),
             number: SqlString.format(`dynamicType(??) in (?) and ??`, [
-              field,
+              jsonFieldPath,
               CLICK_HOUSE_JSON_NUMBER_TYPES,
-              field,
+              jsonFieldPath,
             ]),
           },
           columnType: 'JSON',
@@ -539,10 +588,9 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     // gadget addition: allow falling back to json property access of a json fallback attributes list
     if (this.fallbackAttributeExpression) {
       const segments = field.split('.');
-      const accessPath = [
-        this.fallbackAttributeExpression,
-        ...segments,
-      ].join('.');
+      const accessPath = [this.fallbackAttributeExpression, ...segments].join(
+        '.',
+      );
 
       return {
         found: true,
