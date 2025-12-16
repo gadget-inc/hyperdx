@@ -274,7 +274,7 @@ const aggFnExpr = ({
   };
   const whereWithExtraNullCheck = `${where} AND ${unsafeExpr.UNSAFE_RAW_SQL} IS NOT NULL`;
 
-  if (fn.endsWith('Merge')) {
+  if (fn.endsWith('Merge') || fn === 'finalizeAggregation') {
     return chSql`${fn}(${{
       UNSAFE_RAW_SQL: expr ?? '',
     }})`;
