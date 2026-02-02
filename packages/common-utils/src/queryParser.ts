@@ -179,6 +179,7 @@ class EnglishSerializer implements Serializer {
 
 export abstract class SQLSerializer implements Serializer {
   private NOT_FOUND_QUERY = '(1 = 0)';
+  protected caseSensitive = false;
 
   abstract getColumnForField(field: string): Promise<{
     column?: string;
@@ -346,7 +347,7 @@ export abstract class SQLSerializer implements Serializer {
       );
     } else if (propertyType === JSDataType.JSON) {
       return SqlString.format(
-        `(${columnJSON?.string} ${isNegatedField ? 'NOT ' : ''}ILIKE ?)`,
+        `(${columnJSON?.string} ${isNegatedField ? 'NOT ' : ''}${this.caseSensitive ? 'LIKE' : 'ILIKE'} ?)`,
         [`%${term}%`],
       );
     }
@@ -362,7 +363,9 @@ export abstract class SQLSerializer implements Serializer {
       // to utilize the token bloom filter unless a prefix/sufix wildcard is specified
       if (prefixWildcard || suffixWildcard) {
         return SqlString.format(
-          `(lower(?) ${isNegatedField ? 'NOT ' : ''}LIKE lower(?))`,
+          this.caseSensitive
+            ? `(? ${isNegatedField ? 'NOT ' : ''}LIKE ?)`
+            : `(lower(?) ${isNegatedField ? 'NOT ' : ''}LIKE lower(?))`,
           [
             SqlString.raw(column ?? ''),
             `${prefixWildcard ? '%' : ''}${term}${suffixWildcard ? '%' : ''}`,
@@ -371,24 +374,27 @@ export abstract class SQLSerializer implements Serializer {
       } else {
         // We can't search multiple tokens with `hasToken`, so we need to split up the term into tokens
         const hasSeperators = this.termHasSeperators(term);
+        const hasTokenFn = this.caseSensitive
+          ? 'hasToken'
+          : 'hasTokenCaseInsensitive';
         if (hasSeperators) {
           const tokens = this.tokenizeTerm(term);
           return `(${isNegatedField ? 'NOT (' : ''}${[
             ...tokens.map(token =>
-              SqlString.format(`hasTokenCaseInsensitive(?, ?)`, [
+              SqlString.format(`${hasTokenFn}(?, ?)`, [
                 SqlString.raw(column ?? ''),
                 token,
               ]),
             ),
             // If there are symbols in the term, we'll try to match the whole term as well (ex. Scott!)
-            SqlString.format(`(lower(?) LIKE lower(?))`, [
-              SqlString.raw(column ?? ''),
-              `%${term}%`,
-            ]),
+            SqlString.format(
+              this.caseSensitive ? `(? LIKE ?)` : `(lower(?) LIKE lower(?))`,
+              [SqlString.raw(column ?? ''), `%${term}%`],
+            ),
           ].join(' AND ')}${isNegatedField ? ')' : ''})`;
         } else {
           return SqlString.format(
-            `(${isNegatedField ? 'NOT ' : ''}hasTokenCaseInsensitive(?, ?))`,
+            `(${isNegatedField ? 'NOT ' : ''}${hasTokenFn}(?, ?))`,
             [SqlString.raw(column ?? ''), term],
           );
         }
@@ -397,7 +403,12 @@ export abstract class SQLSerializer implements Serializer {
       const shoudUseTokenBf = isImplicitField;
       return SqlString.format(
         `(${column} ${isNegatedField ? 'NOT ' : ''}? ?)`,
-        [SqlString.raw(shoudUseTokenBf ? 'LIKE' : 'ILIKE'), `%${term}%`],
+        [
+          SqlString.raw(
+            shoudUseTokenBf || this.caseSensitive ? 'LIKE' : 'ILIKE',
+          ),
+          `%${term}%`,
+        ],
       );
     }
   }
@@ -426,6 +437,7 @@ export type CustomSchemaConfig = {
   columnAliases?: Record<string, string>;
   tableName: string;
   connectionId: string;
+  caseSensitive?: boolean;
 };
 
 export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
@@ -445,6 +457,7 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     implicitColumnExpression,
     fallbackAttributeExpression,
     columnAliases,
+    caseSensitive,
   }: { metadata: Metadata } & CustomSchemaConfig) {
     super();
     this.metadata = metadata;
@@ -454,6 +467,7 @@ export class CustomSchemaSQLSerializerV2 extends SQLSerializer {
     this.fallbackAttributeExpression = fallbackAttributeExpression;
     this.columnAliases = columnAliases ?? {};
     this.connectionId = connectionId;
+    this.caseSensitive = caseSensitive ?? false;
   }
 
   /**

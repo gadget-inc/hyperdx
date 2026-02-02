@@ -26,6 +26,7 @@
 **/.env.local
 **/.dockerhub.env
 **/.ghcr.env
+.claude/settings.local.json
 
 # Next.js build output
 packages/app/.next
