@@ -367,6 +367,7 @@ async function renderSelectList(
         columnAliases: chartConfig.columnAliases,
         metadata,
         connectionId: chartConfig.connection,
+        caseSensitive: chartConfig.caseSensitive,
         with: chartConfig.with,
       });
 
@@ -579,6 +580,7 @@ async function renderWhereExpression({
   fallbackAttributeExpression,
   columnAliases,
   connectionId,
+  caseSensitive,
   with: withClauses,
 }: {
   condition: SearchCondition;
@@ -589,6 +591,7 @@ async function renderWhereExpression({
   fallbackAttributeExpression?: string;
   columnAliases?: Record<string, string>;
   connectionId: string;
+  caseSensitive?: boolean;
   with?: ChartConfigWithDateRange['with'];
 }): Promise<ChSql> {
   let _condition = condition;
@@ -601,6 +604,7 @@ async function renderWhereExpression({
       fallbackAttributeExpression,
       columnAliases,
       connectionId: connectionId,
+      caseSensitive,
     });
     const builder = new SearchQueryBuilder(condition, serializer);
     _condition = await builder.build();
@@ -646,6 +650,7 @@ async function renderWhere(
         columnAliases: chartConfig.columnAliases,
         metadata,
         connectionId: chartConfig.connection,
+        caseSensitive: chartConfig.caseSensitive,
         with: chartConfig.with,
       }),
       '(',
@@ -674,6 +679,7 @@ async function renderWhere(
               columnAliases: chartConfig.columnAliases,
               metadata,
               connectionId: chartConfig.connection,
+              caseSensitive: chartConfig.caseSensitive,
               with: chartConfig.with,
             });
           }
@@ -703,6 +709,7 @@ async function renderWhere(
             columnAliases: chartConfig.columnAliases,
             metadata,
             connectionId: chartConfig.connection,
+            caseSensitive: chartConfig.caseSensitive,
             with: chartConfig.with,
           }),
           '(',

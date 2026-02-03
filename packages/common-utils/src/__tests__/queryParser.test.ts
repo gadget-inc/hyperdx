@@ -439,4 +439,189 @@ describe('CustomSchemaSQLSerializerV2 - json', () => {
       propertyType: 'json',
     });
   });
+
+  describe('caseSensitive', () => {
+    const mockMetadata = getMetadata(new ClickhouseClient({ host: '' }));
+    // @ts-ignore
+    mockMetadata.getColumn = ({ column }) => {
+      return new Promise(resolve => {
+        if (column.indexOf('.') >= 0) return resolve(undefined);
+        if (column === 'Body') {
+          return resolve({
+            name: 'Body',
+            type: 'String',
+            codec_expression: '',
+            comment: '',
+            default_expression: '',
+            default_type: '',
+            ttl_expression: '',
+          });
+        }
+        const testTable = getTestTable(column);
+        // @ts-ignore
+        return resolve(testTable);
+      });
+    };
+
+    const caseSensitiveSerializer = new CustomSchemaSQLSerializerV2({
+      metadata: mockMetadata,
+      databaseName,
+      tableName,
+      connectionId,
+      implicitColumnExpression: 'Body',
+      caseSensitive: true,
+    });
+
+    const caseInsensitiveSerializer = new CustomSchemaSQLSerializerV2({
+      metadata: mockMetadata,
+      databaseName,
+      tableName,
+      connectionId,
+      implicitColumnExpression: 'Body',
+      caseSensitive: false,
+    });
+
+    it('implicit field - single token uses hasToken when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'error',
+        false,
+        false,
+        false,
+      );
+      expect(result).toBe("(hasToken(Body, 'error'))");
+    });
+
+    it('implicit field - single token uses hasTokenCaseInsensitive when not caseSensitive', async () => {
+      const result = await caseInsensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'error',
+        false,
+        false,
+        false,
+      );
+      expect(result).toBe("(hasTokenCaseInsensitive(Body, 'error'))");
+    });
+
+    it('implicit field - wildcard uses LIKE without lower() when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'err',
+        false,
+        false,
+        true,
+      );
+      expect(result).toBe("(Body LIKE 'err%')");
+    });
+
+    it('implicit field - wildcard uses lower() LIKE lower() when not caseSensitive', async () => {
+      const result = await caseInsensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'err',
+        false,
+        false,
+        true,
+      );
+      expect(result).toBe("(lower(Body) LIKE lower('err%'))");
+    });
+
+    it('implicit field - tokens with separators uses hasToken when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'hello world',
+        false,
+        false,
+        false,
+      );
+      expect(result).toContain("hasToken(Body, 'hello')");
+      expect(result).toContain("hasToken(Body, 'world')");
+      expect(result).toContain("(Body LIKE '%hello world%')");
+      expect(result).not.toContain('hasTokenCaseInsensitive');
+      expect(result).not.toContain('lower');
+    });
+
+    it('implicit field - tokens with separators uses hasTokenCaseInsensitive when not caseSensitive', async () => {
+      const result = await caseInsensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'hello world',
+        false,
+        false,
+        false,
+      );
+      expect(result).toContain("hasTokenCaseInsensitive(Body, 'hello')");
+      expect(result).toContain("hasTokenCaseInsensitive(Body, 'world')");
+      expect(result).toContain("(lower(Body) LIKE lower('%hello world%'))");
+      expect(result).not.toContain('hasToken(');
+    });
+
+    it('JSON field uses LIKE when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        'serviceName',
+        'myService',
+        false,
+        false,
+        false,
+      );
+      expect(result).toBe(
+        "(toString(`serviceName`) LIKE '%myService%')",
+      );
+    });
+
+    it('JSON field uses ILIKE when not caseSensitive', async () => {
+      const result = await caseInsensitiveSerializer.fieldSearch(
+        'serviceName',
+        'myService',
+        false,
+        false,
+        false,
+      );
+      expect(result).toBe(
+        "(toString(`serviceName`) ILIKE '%myService%')",
+      );
+    });
+
+    it('non-implicit String field uses LIKE when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        'Body',
+        'myTerm',
+        false,
+        false,
+        false,
+      );
+      expect(result).toBe("(Body LIKE '%myTerm%')");
+    });
+
+    it('non-implicit String field uses ILIKE when not caseSensitive', async () => {
+      const result = await caseInsensitiveSerializer.fieldSearch(
+        'Body',
+        'myTerm',
+        false,
+        false,
+        false,
+      );
+      expect(result).toBe("(Body ILIKE '%myTerm%')");
+    });
+
+    it('negated implicit field - single token uses NOT hasToken when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'error',
+        true,
+        false,
+        false,
+      );
+      expect(result).toBe("(NOT hasToken(Body, 'error'))");
+    });
+
+    it('negated implicit field - wildcard uses NOT LIKE without lower() when caseSensitive', async () => {
+      const result = await caseSensitiveSerializer.fieldSearch(
+        '<implicit>',
+        'err',
+        true,
+        true,
+        true,
+      );
+      expect(result).toBe("(Body NOT LIKE '%err%')");
+    });
+  });
 });
